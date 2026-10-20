@@ -45,7 +45,7 @@ def build_itch():
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as z:
         for file_path in build_dir.rglob("*"):
             if file_path.is_file():
-                arc = file_path.relative_to(DIST) / file_path.relative_to(build_dir)
+                arc = file_path.relative_to(DIST)
                 z.write(file_path, arc)
 
     print(f"built itch package: {zip_path}")
