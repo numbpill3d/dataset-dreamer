@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dataset-dreamer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="chrome">
+        <div class="title-bar">
+            <div class="title-bar-left">
+                <div class="window-icon">□</div>
+                <span class="window-title">dataset-dreamer.exe</span>
+            </div>
+            <div class="title-bar-right">
+                <button class="title-btn" id="btn-min">_</button>
+                <button class="title-btn" id="btn-max">□</button>
+                <button class="title-btn close" id="btn-close">×</button>
+            </div>
+        </div>
+
+        <div class="menu-bar">
+            <div class="menu-item" data-menu="file">FILE</div>
+            <div class="menu-item" data-menu="data">DATA</div>
+            <div class="menu-item" data-menu="model">MODEL</div>
+            <div class="menu-item" data-menu="signals">SIGNALS</div>
+            <div class="menu-item" data-menu="view">VIEW</div>
+            <div class="menu-item" data-menu="help">HELP</div>
+        </div>
+
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <button class="tool-btn" id="tool-load" title="LOAD DATA [Ctrl+O]">📁 LOAD</button>
+                <button class="tool-btn" id="tool-train" title="TRAIN MODEL [F5]">⚙ TRAIN</button>
+                <button class="tool-btn" id="tool-generate" title="GENERATE [F9]">✨ GENERATE</button>
+                <button class="tool-btn" id="tool-interpolate" title="INTERPOLATE [F10]">⟷ INTERP</button>
+            </div>
+            <div class="toolbar-sep"></div>
+            <div class="toolbar-group">
+                <select class="tool-select" id="model-type">
+                    <option value="ctgan">CTGAN</option>
+                    <option value="tvae">TVAE</option>
+                    <option value="custom_flow">CUSTOM FLOW</option>
+                </select>
+                <input type="number" class="tool-input" id="epochs" value="300" min="10" max="5000" title="EPOCHS">
+                <input type="number" class="tool-input" id="batch-size" value="500" min="10" max="10000" title="BATCH SIZE">
+                <input type="number" class="tool-input" id="gen-rows" value="1000" min="1" max="1000000" title="ROWS">
+                <input type="number" class="tool-input" id="temperature" value="1.0" min="0.1" max="5.0" step="0.1" title="TEMPERATURE">
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-left">
+                <span id="status-text">READY</span>
+                <span class="status-sep">|</span>
+                <span id="data-info">NO DATA</span>
+                <span class="status-sep">|</span>
+                <span id="model-info">NO MODEL</span>
+            </div>
+            <div class="status-right">
+                <span id="signal-indicator" class="signal-dot"></span>
+                <span id="signal-text">SIGNALS: --</span>
+                <span class="status-sep">|</span>
+                <span id="clock">00:00:00</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="pane left-pane" id="pane-signals">
+            <div class="pane-header">
+                <span class="pane-title">EXTERNAL SIGNALS</span>
+                <button class="pane-btn" id="refresh-signals" title="REFRESH [Ctrl+R]">⟳</button>
+            </div>
+            <div class="pane-content">
+                <table class="signal-table" id="signal-table">
+                    <thead>
+                        <tr>
+                            <th>SOURCE</th>
+                            <th>VALUE</th>
+                            <th>WEIGHT</th>
+                            <th>STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="signal-graph" id="signal-graph"></div>
+            </div>
+        </div>
+
+        <div class="pane-divider" id="divider-1"></div>
+
+        <div class="pane center-pane" id="pane-data">
+            <div class="pane-header">
+                <span class="pane-title">DATA PREVIEW</span>
+                <select class="pane-select" id="preview-rows">
+                    <option value="10">10 ROWS</option>
+                    <option value="25">25 ROWS</option>
+                    <option value="50">50 ROWS</option>
+                    <option value="100">100 ROWS</option>
+                </select>
+            </div>
+            <div class="pane-content">
+                <div class="data-grid" id="data-grid"></div>
+            </div>
+        </div>
+
+        <div class="pane-divider" id="divider-2"></div>
+
+        <div class="pane right-pane" id="pane-latent">
+            <div class="pane-header">
+                <span class="pane-title">LATENT SPACE</span>
+                <button class="pane-btn" id="capture-latent" title="CAPTURE LATENT">◉</button>
+            </div>
+            <div class="pane-content">
+                <canvas class="latent-canvas" id="latent-canvas"></canvas>
+                <div class="latent-controls">
+                    <label><input type="checkbox" id="latent-3d"> 3D</label>
+                    <label><input type="checkbox" id="latent-trail"> TRAIL</label>
+                    <label><input type="range" id="latent-speed" min="0.1" max="3" step="0.1" value="1"> SPEED</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modal-file" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-window">
+            <div class="modal-title-bar">
+                <span>LOAD DATASET</span>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>FILE PATH</label>
+                    <input type="text" id="file-path" placeholder="/path/to/data.parquet" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <button class="btn btn-primary" id="confirm-load">LOAD</button>
+                    <button class="btn" id="cancel-load">CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modal-train" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-window">
+            <div class="modal-title-bar">
+                <span>TRAIN MODEL</span>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>MODEL TYPE</label>
+                    <select id="train-model-type">
+                        <option value="ctgan">CTGAN</option>
+                        <option value="tvae">TVAE</option>
+                        <option value="custom_flow">CUSTOM FLOW</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label>EPOCHS</label>
+                        <input type="number" id="train-epochs" value="300" min="10" max="5000">
+                    </div>
+                    <div class="form-group half">
+                        <label>BATCH SIZE</label>
+                        <input type="number" id="train-batch" value="500" min="10" max="10000">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label>LEARNING RATE</label>
+                        <input type="number" id="train-lr" value="0.0002" min="0.00001" max="0.01" step="0.00001">
+                    </div>
+                    <div class="form-group half">
+                        <label>LATENT DIM</label>
+                        <input type="number" id="train-latent" value="16" min="2" max="128">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>SIGNALS</label>
+                    <div class="signal-checklist" id="train-signals"></div>
+                </div>
+                <div class="form-row">
+                    <button class="btn btn-primary" id="confirm-train">START TRAINING</button>
+                    <button class="btn" id="cancel-train">CANCEL</button>
+                </div>
+                <div class="progress-container" id="train-progress" hidden>
+                    <div class="progress-bar" id="progress-bar"></div>
+                    <span class="progress-text" id="progress-text">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modal-generate" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-window">
+            <div class="modal-title-bar">
+                <span>GENERATE DATA</span>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label>ROWS</label>
+                        <input type="number" id="gen-rows-modal" value="1000" min="1" max="1000000">
+                    </div>
+                    <div class="form-group half">
+                        <label>TEMPERATURE</label>
+                        <input type="number" id="gen-temp-modal" value="1.0" min="0.1" max="5.0" step="0.1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>SIGNAL OVERRIDES</label>
+                    <div class="signal-overrides" id="signal-overrides"></div>
+                </div>
+                <div class="form-row">
+                    <button class="btn btn-primary" id="confirm-generate">GENERATE</button>
+                    <button class="btn" id="cancel-generate">CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="console" id="console" hidden>
+        <div class="console-header">
+            <span>CONSOLE</span>
+            <button class="console-btn" id="console-clear">CLEAR</button>
+            <button class="console-btn" id="console-close">×</button>
+        </div>
+        <div class="console-body" id="console-body"></div>
+    </div>
+
+    <script type="module" src="/static/app.js"></script>
+</body>
+</html>
